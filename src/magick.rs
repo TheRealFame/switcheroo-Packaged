@@ -1,4 +1,4 @@
-use crate::{color::Color, filetypes::FileType, window::ResizeFilter};
+use crate::{color::Color, filetypes::FileType, window::ResizeFilter, window::StripType};
 use gettextrs::gettext;
 use itertools::Itertools;
 use shared_child::SharedChild;
@@ -74,6 +74,15 @@ impl MagickArgument for ResizeFilter {
     }
 }
 
+impl MagickArgument for StripType {
+    fn get_argument(&self) -> Vec<String> {
+        match self {
+            StripType::StripAll => vec!["-auto-orient".to_string(), "-strip".to_string()],
+            StripType::None => vec![]
+        }
+    }
+}
+
 impl MagickArgument for ResizeArgument {
     fn get_argument(&self) -> Vec<String> {
         match self {
@@ -107,6 +116,7 @@ pub struct MagickConvertJob {
     pub quality: usize,
     pub first_frame: bool,
     pub filter: Option<ResizeFilter>,
+    pub strip: StripType,
     pub resize_arg: ResizeArgument,
     pub density: Option<usize>,
     pub remove_alpha: bool,
@@ -213,6 +223,7 @@ impl MagickConvertJob {
                 .args(["-quality".to_string(), self.quality.to_string()])
                 .args(self.filter.get_argument())
                 .args(resize_arg)
+                .args(self.strip.get_argument())
                 .arg(self.output_file.clone());
         } else {
             command

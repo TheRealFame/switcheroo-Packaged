@@ -79,6 +79,13 @@ impl FileType {
         )
     }
 
+    pub fn supports_metadata(&self) -> bool {
+        matches!(
+            self,
+            Png | Jpg | Jpeg | Jxl | Tiff | Pdf | Svg | Gif | Webp | Heif | Heic | Avif | Bmp
+        )
+    }
+
     pub fn supports_pixbuf(&self) -> bool {
         !matches!(self, Pdf | Dds | Ico)
     }
