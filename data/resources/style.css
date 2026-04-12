@@ -13,8 +13,8 @@ dragoverlay {
 }
 
 .drag-overlay-status-page {
-  background-color: alpha(@accent_bg_color, 0.5);
-  color: @accent_fg_color;
+  background-color: alpha(var(--accent-bg-color), 0.5);
+  color: var(--accent-fg-color);
 }
 
 .card-content {
@@ -26,18 +26,18 @@ flowboxchild:focus {
 }
 
 .image-caption {
-  border-top: 1px solid @borders;
-  background-color: @thumbnail_bg_color;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--thumbnail-bg-color);
   padding: 2pt 0;
 }
 
 .image-remove {
-  /* background-color: @thumbnail_bg_color; */
+  /* background-color: var(--thumbnail-bg-color); */
   margin: 5px;
 }
 
 .image-remove:focus {
-  outline-color: alpha(@accent_color, 0.5);
+  outline-color: alpha(var(--accent-color), 0.5);
 }
 
 .image-rest-button:focus {
@@ -72,4 +72,10 @@ value {
 
 .output-filetype-drop popover > contents {
   min-width: 7em;
+}
+
+@media (prefers-contrast: more) {
+  .image-remove:focus {
+    outline-color: alpha(var(--accent-color), 0.8);
+  }
 }
