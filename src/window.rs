@@ -73,6 +73,12 @@ impl ResizeType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StripType {
+    None,
+    StripAll,
+}
+
 mod imp {
     use std::{
         cell::{Cell, RefCell},
@@ -136,6 +142,8 @@ mod imp {
         #[template_child]
         pub quality: TemplateChild<gtk::Scale>,
         #[template_child]
+        pub strip: TemplateChild<gtk::Switch>,
+        #[template_child]
         pub bgcolor: TemplateChild<gtk::ColorDialogButton>,
         #[template_child]
         pub resize_filter_default: TemplateChild<gtk::ToggleButton>,
@@ -162,6 +170,8 @@ mod imp {
 
         #[template_child]
         pub quality_row: TemplateChild<adw::ActionRow>,
+        #[template_child]
+        pub strip_row: TemplateChild<adw::ActionRow>,
         #[template_child]
         pub bgcolor_row: TemplateChild<adw::ActionRow>,
         #[template_child]
@@ -1042,6 +1052,7 @@ impl AppWindow {
             quality: self.get_quality_argument(),
             filter: self.get_filter_argument(),
             resize_arg: self.get_resize_argument(),
+            strip: self.get_strip_argument(),
             density: None,
             first_frame: false,
             remove_alpha: false,
@@ -1213,6 +1224,7 @@ trait ConvertArguments {
     fn get_bgcolor_argument(&self) -> Color;
     fn get_filter_argument(&self) -> Option<ResizeFilter>;
     fn get_resize_argument(&self) -> ResizeArgument;
+    fn get_strip_argument(&self) -> StripType;
 }
 trait ConvertOperations {
     fn convert_start_wrapper(&self, save_format: OutputType, path: String);
@@ -1582,6 +1594,13 @@ impl ConvertArguments for AppWindow {
         self.imp().quality.value() as usize
     }
 
+    fn get_strip_argument(&self) -> StripType {
+        match self.imp().strip.is_active() {
+            true => StripType::StripAll,
+            false => StripType::None,
+        }
+    }
+
     fn get_dpi_argument(&self) -> usize {
         self.imp().dpi_value.text().parse().unwrap()
     }
@@ -1703,6 +1722,7 @@ impl WindowUI for AppWindow {
         imp.quality_row.set_visible(false);
         imp.bgcolor_row.set_visible(false);
         imp.dpi_row.set_visible(false);
+        imp.strip_row.set_visible(false);
 
         if output_filetype.is_lossy() {
             imp.quality_row.set_visible(true);
@@ -1743,6 +1763,13 @@ impl WindowUI for AppWindow {
 
         if input_filetypes.contains(&FileType::Pdf) {
             imp.dpi_row.set_visible(true);
+        }
+
+        if input_filetypes
+            .iter()
+            .any(|input_file| input_file.supports_metadata())
+        {
+            imp.strip_row.set_visible(true);
         }
     }
 
