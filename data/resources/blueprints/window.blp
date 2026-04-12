@@ -294,6 +294,16 @@ template $AppWindow: Adw.ApplicationWindow {
                                 ]
                               }
                             }
+
+                            Adw.ActionRow strip_row {
+                              title: _("Remove Metadata");
+                              activatable-widget: strip;
+
+                              Switch strip {
+                                active: false;
+                                valign: center;
+                              }
+                            }
                           }
 
                           Adw.PreferencesGroup {
