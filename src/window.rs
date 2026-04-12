@@ -1091,7 +1091,7 @@ impl AppWindow {
                 .map(|mjs| {
                     let stop_flag = stop_flag.clone();
                     let sender = sender.clone();
-                    async move {
+                    runtime().spawn_blocking(move || {
                         for mut mj_command in mjs.into_iter().map(|mj| mj.get_command()) {
                             if stop_flag.load(std::sync::atomic::Ordering::SeqCst) {
                                 return;
@@ -1128,7 +1128,7 @@ impl AppWindow {
                                 .send_blocking(ArcOrOptionError::OptionError(output))
                                 .expect("Concurrency Issues");
                         }
-                    }
+                    })
                 })
                 .collect_vec();
 
