@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: switcheroo\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-21 22:32-0800\n"
+"POT-Creation-Date: 2026-04-12 12:51-1000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -39,7 +39,7 @@ msgid "converter;image;convert;converting;processing"
 msgstr ""
 
 #: data/io.gitlab.adhami3310.Converter.desktop.in.in:20
-#: data/resources/blueprints/window.blp:482
+#: data/resources/blueprints/window.blp:492
 msgid "New Window"
 msgstr ""
 
@@ -92,7 +92,7 @@ msgid "Drop Here to Open"
 msgstr ""
 
 #: data/resources/blueprints/window.blp:28
-#: data/resources/blueprints/window.blp:379
+#: data/resources/blueprints/window.blp:389
 msgid "Add Images (Ctrl+O)"
 msgstr ""
 
@@ -182,91 +182,95 @@ msgstr ""
 msgid "Pixel Art"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:306
+#: data/resources/blueprints/window.blp:299
+msgid "Remove Metadata"
+msgstr ""
+
+#: data/resources/blueprints/window.blp:316
 msgid "_Convert"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:326
+#: data/resources/blueprints/window.blp:336
 msgid "Could not Load Image"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:327
+#: data/resources/blueprints/window.blp:337
 msgid "This image could be corrupted or may use an unsupported file format."
 msgstr ""
 
-#: data/resources/blueprints/window.blp:337
+#: data/resources/blueprints/window.blp:347
 msgid "Converting"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:338
+#: data/resources/blueprints/window.blp:348
 msgid "This could take a while"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:348 src/window.rs:938
+#: data/resources/blueprints/window.blp:358 src/window.rs:948
 msgid "Loading…"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:354 src/window.rs:568
-#: src/window.rs:1545
+#: data/resources/blueprints/window.blp:364 src/window.rs:578
+#: src/window.rs:1557
 msgid "_Cancel"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:372
+#: data/resources/blueprints/window.blp:382
 msgid "All Images"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:440
+#: data/resources/blueprints/window.blp:450
 msgctxt "shortcut window"
 msgid "General"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:443
+#: data/resources/blueprints/window.blp:453
 msgctxt "shortcut window"
 msgid "Show Shortcuts"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:448
+#: data/resources/blueprints/window.blp:458
 msgctxt "shortcut window"
 msgid "Quit"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:453
+#: data/resources/blueprints/window.blp:463
 msgctxt "shortcut window"
 msgid "New Window"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:458
+#: data/resources/blueprints/window.blp:468
 msgctxt "shortcut window"
 msgid "Clear Window"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:463
+#: data/resources/blueprints/window.blp:473
 msgctxt "shortcut window"
 msgid "Paste From Clipboard"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:468
+#: data/resources/blueprints/window.blp:478
 msgctxt "shortcut window"
 msgid "Add Images"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:477
+#: data/resources/blueprints/window.blp:487
 msgid "Paste From Clipboard"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:487
+#: data/resources/blueprints/window.blp:497
 msgid "Clear Window"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:494
+#: data/resources/blueprints/window.blp:504
 msgid "Keyboard Shortcuts"
 msgstr ""
 
-#: data/resources/blueprints/window.blp:499
+#: data/resources/blueprints/window.blp:509
 msgid "About Switcheroo"
 msgstr ""
 
-#: src/file_chooser.rs:39 src/window.rs:2130
+#: src/file_chooser.rs:39 src/window.rs:2157
 msgid "Unsupported filetype"
 msgstr ""
 
@@ -290,11 +294,11 @@ msgstr ""
 msgid "Used the wrong filetype"
 msgstr ""
 
-#: src/magick.rs:138
+#: src/magick.rs:148
 msgid "Pasted Image"
 msgstr ""
 
-#: src/magick.rs:292
+#: src/magick.rs:303
 msgid "Unknown IO error happened"
 msgstr ""
 
@@ -330,55 +334,55 @@ msgstr ""
 msgid "Sample Image from"
 msgstr ""
 
-#: src/window.rs:518
+#: src/window.rs:528
 #, rust-format
 msgid "New transparency layer color: {}"
 msgstr ""
 
-#: src/window.rs:538
+#: src/window.rs:548
 msgid "Unable to access dropped files"
 msgstr ""
 
-#: src/window.rs:564 src/window.rs:1540
+#: src/window.rs:574 src/window.rs:1552
 msgid "Stop converting?"
 msgstr ""
 
-#: src/window.rs:565 src/window.rs:1541
+#: src/window.rs:575 src/window.rs:1553
 msgid "You will lose all progress."
 msgstr ""
 
-#: src/window.rs:569 src/window.rs:1545
+#: src/window.rs:579 src/window.rs:1557
 msgid "_Stop"
 msgstr ""
 
-#: src/window.rs:609
+#: src/window.rs:619
 msgid "Collecting files"
 msgstr ""
 
-#: src/window.rs:1458
+#: src/window.rs:1470
 msgid "Error While Processing"
 msgstr ""
 
-#: src/window.rs:1479
+#: src/window.rs:1491
 msgid "_Close"
 msgstr ""
 
-#: src/window.rs:1480
+#: src/window.rs:1492
 msgid "_Copy to Clipboard"
 msgstr ""
 
-#: src/window.rs:1491
+#: src/window.rs:1503
 msgid "Error copied to clipboard"
 msgstr ""
 
-#: src/window.rs:1507
+#: src/window.rs:1519
 msgid "Image converted"
 msgstr ""
 
-#: src/window.rs:1508
+#: src/window.rs:1520
 msgid "Open"
 msgstr ""
 
-#: src/window.rs:1570
+#: src/window.rs:1582
 msgid "Converting Cancelled"
 msgstr ""
