@@ -3,8 +3,8 @@ use tempfile::{TempDir, tempdir, tempdir_in};
 
 use crate::magick::JobFile;
 
-pub async fn create_temporary_dir() -> std::io::Result<TempDir> {
-    if ashpd::is_sandboxed().await {
+pub fn create_temporary_dir() -> std::io::Result<TempDir> {
+    if ashpd::is_sandboxed() {
         let prefix = format!("{}/tmp", var("XDG_CACHE_HOME").unwrap());
         Ok(tempdir_in(prefix)?)
     } else {

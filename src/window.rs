@@ -949,7 +949,7 @@ impl AppWindow {
 
         let files = self.active_files();
 
-        let dir = runtime().block_on(create_temporary_dir()).unwrap();
+        let dir = create_temporary_dir().unwrap();
 
         let job_input = files
             .into_iter()
