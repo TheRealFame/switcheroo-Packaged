@@ -1597,7 +1597,7 @@ impl ConvertArguments for AppWindow {
     fn get_strip_argument(&self) -> StripType {
         match self.imp().strip.is_active() {
             true => StripType::StripAll,
-            false => StripType::None
+            false => StripType::None,
         }
     }
 
@@ -2253,4 +2253,3 @@ fn generate_width_from_height(height: u32, image_dim: (u32, u32)) -> u32 {
 fn generate_height_from_width(width: u32, image_dim: (u32, u32)) -> u32 {
     ((width as f64) * (image_dim.1 as f64) / (image_dim.0 as f64)).round() as u32
 }
-

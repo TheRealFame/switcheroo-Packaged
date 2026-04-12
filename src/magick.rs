@@ -78,7 +78,7 @@ impl MagickArgument for StripType {
     fn get_argument(&self) -> Vec<String> {
         match self {
             StripType::StripAll => vec!["-auto-orient".to_string(), "-strip".to_string()],
-            StripType::None => vec![]
+            StripType::None => vec![],
         }
     }
 }
