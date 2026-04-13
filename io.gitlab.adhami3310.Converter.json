@@ -19,12 +19,10 @@
     },
     "cleanup": [
         "/include",
+        "/lib/cmake",
         "/lib/pkgconfig",
-        "/man",
         "/share/doc",
-        "/share/gtk-doc",
         "/share/man",
-        "/share/pkgconfig",
         "*.la",
         "*.a"
     ],
@@ -52,8 +50,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10060/ghostscript-10.06.0.tar.gz",
-                    "sha256": "5bd6da34794928cc7e616f288e32bd0be7f9a5ca2d3c206a0af2c19a4e3a318f"
+                    "url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10070/ghostscript-10.07.0.tar.xz",
+                    "sha256": "ddace4e1721f967a55039baff564840225e0baa1d4f5432247ca1ccd1473b7c1"
                 },
                 {
                     "type": "shell",
@@ -83,8 +81,6 @@
             ],
             "cleanup": [
                 "/bin",
-                "/include",
-                "/lib/pkgconfig",
                 "/share"
             ]
         },
@@ -100,8 +96,8 @@
                 {
                     "type": "git",
                     "url": "https://github.com/ImageMagick/ImageMagick.git",
-                    "tag": "7.1.2-8",
-                    "commit": "a3b13d143fd7dea44cd71d31aa02f411b597688f"
+                    "tag": "7.1.2-19",
+                    "commit": "9fbd2b79450e930edb95e8158d412e57a7b27e83"
                 }
             ]
         },
