@@ -86,11 +86,12 @@
         },
         {
             "name": "magick",
-            "buildsystem": "simple",
-            "build-commands": [
-                "./configure --prefix=/app --with-heic=yes --with-jxl=yes --with-rsvg=yes --with-gslib=yes",
-                "make",
-                "make install"
+            "buildsystem": "autotools",
+            "config-opts": [
+                "--with-heic=yes",
+                "--with-jxl=yes",
+                "--with-rsvg=yes",
+                "--with-gslib=yes"
             ],
             "sources": [
                 {
