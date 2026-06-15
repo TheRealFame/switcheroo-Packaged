@@ -1315,24 +1315,12 @@ impl ConvertOperations for AppWindow {
                 let (sender, receiver) = async_channel::bounded(1);
 
                 std::thread::spawn(move || {
-                    let shared_child: SharedChild = SharedChild::spawn(
-                        std::process::Command::new("mv")
-                            .stdout(std::process::Stdio::piped())
-                            .stderr(std::process::Stdio::piped())
-                            .arg(file)
-                            .arg(path),
-                    )
-                    .unwrap();
-                    let child_arc = std::sync::Arc::new(shared_child);
+                    let error = move_file(file.as_ref(), path.as_ref())
+                        .err()
+                        .map(|e| format!("move: {e}"));
 
                     sender
-                        .send_blocking(ArcOrOptionError::Child(child_arc.clone()))
-                        .expect("Concurrency Issues");
-
-                    sender
-                        .send_blocking(ArcOrOptionError::OptionError(
-                            wait_for_child(child_arc).err(),
-                        ))
+                        .send_blocking(ArcOrOptionError::OptionError(error))
                         .expect("Concurrency Issues");
                 });
 
@@ -1342,24 +1330,18 @@ impl ConvertOperations for AppWindow {
                 let (sender, receiver) = async_channel::bounded(1);
 
                 std::thread::spawn(move || {
-                    let shared_child: SharedChild = SharedChild::spawn(
-                        std::process::Command::new("mv")
-                            .stdout(std::process::Stdio::piped())
-                            .stderr(std::process::Stdio::piped())
-                            .args(output_files)
-                            .arg(path),
-                    )
-                    .unwrap();
-                    let child_arc = std::sync::Arc::new(shared_child);
+                    let dest = std::path::Path::new(&path);
+                    let error = output_files
+                        .iter()
+                        .try_for_each(|file| {
+                            let from = std::path::Path::new(file);
+                            move_file(from, &dest.join(from.file_name().unwrap()))
+                        })
+                        .err()
+                        .map(|e| format!("move: {e}"));
 
                     sender
-                        .send_blocking(ArcOrOptionError::Child(child_arc.clone()))
-                        .expect("Concurrency Issues");
-
-                    sender
-                        .send_blocking(ArcOrOptionError::OptionError(
-                            wait_for_child(child_arc).err(),
-                        ))
+                        .send_blocking(ArcOrOptionError::OptionError(error))
                         .expect("Concurrency Issues");
                 });
 
@@ -2247,6 +2229,18 @@ impl FileOperations for AppWindow {
 
     fn add_success_wrapper(&self, files: Vec<InputFile>) {
         self.open_success(files);
+    }
+}
+
+/// Move a file, falling back to copy + delete when source and destination live
+/// on different filesystems (where [`std::fs::rename`] fails with `EXDEV`).
+fn move_file(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    match std::fs::rename(from, to) {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            std::fs::copy(from, to)?;
+            std::fs::remove_file(from)
+        }
     }
 }
 
