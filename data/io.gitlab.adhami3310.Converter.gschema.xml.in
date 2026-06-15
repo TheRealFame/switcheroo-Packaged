@@ -19,6 +19,10 @@
 		<value nick="Zip" value="0"/>
 		<value nick="Dir" value="1"/>
 	</enum>
+	<enum id="io.gitlab.adhami3310.Converter.resize">
+		<value nick="Percentage" value="0"/>
+		<value nick="ExactPixels" value="1"/>
+	</enum>
 
 	<schema id="@app-id@" path="/io/gitlab/adhami3310/Converter/" gettext-domain="@gettext-package@">
 		<key name="window-width" type="i">
@@ -48,6 +52,10 @@
 		<key name="compression-format" enum="io.gitlab.adhami3310.Converter.compression">
 			<default>'Dir'</default>
 			<summary>Compression format</summary>
+		</key>
+		<key name="resize-type" enum="io.gitlab.adhami3310.Converter.resize">
+			<default>'Percentage'</default>
+			<summary>Resize unit (percentage or pixels)</summary>
 		</key>
 	</schema>
 </schemalist>

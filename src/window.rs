@@ -2096,6 +2096,8 @@ impl SettingsStore for AppWindow {
             .set_int("quality", imp.quality.value() as i32)?;
         imp.settings
             .set_int("dpi", imp.dpi_value.text().parse().unwrap())?;
+        imp.settings
+            .set_enum("resize-type", imp.resize_type.selected() as i32)?;
 
         Ok(())
     }
@@ -2105,6 +2107,8 @@ impl SettingsStore for AppWindow {
 
         imp.quality.set_value(imp.settings.int("quality") as f64);
         imp.dpi_value.set_text(&imp.settings.int("dpi").to_string());
+        imp.resize_type
+            .set_selected(imp.settings.enum_("resize-type") as u32);
     }
 
     fn save_selected_output(&self) -> Result<(), glib::BoolError> {
