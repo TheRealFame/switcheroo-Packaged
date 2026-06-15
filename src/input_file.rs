@@ -7,6 +7,7 @@ use gtk::{
 };
 use once_cell::sync::Lazy;
 use std::cell::{Cell, Ref, RefCell};
+use std::num::NonZeroUsize;
 
 use crate::filetypes::FileType;
 
@@ -20,7 +21,7 @@ mod imp {
         pub path: RefCell<String>,
         pub kind: Cell<FileType>,
         pub pixbuf: RefCell<Option<Texture>>,
-        pub frames: Cell<usize>,
+        pub frame_count: Cell<NonZeroUsize>,
         pub is_behind_sandbox: Cell<bool>,
         pub width: Cell<Option<usize>>,
         pub height: Cell<Option<usize>>,
@@ -36,7 +37,7 @@ mod imp {
                 path: RefCell::new("/invalid-path".to_string()),
                 kind: Cell::new(FileType::Unknown),
                 pixbuf: RefCell::new(None),
-                frames: Cell::new(1),
+                frame_count: Cell::new(NonZeroUsize::MIN),
                 is_behind_sandbox: Cell::new(true),
                 width: Cell::new(None),
                 height: Cell::new(None),
@@ -140,8 +141,8 @@ impl InputFile {
         self.imp().pixbuf.borrow()
     }
 
-    pub fn frames(&self) -> usize {
-        self.imp().frames.get()
+    pub fn frame_count(&self) -> NonZeroUsize {
+        self.imp().frame_count.get()
     }
 
     pub fn width(&self) -> Option<usize> {
@@ -157,8 +158,8 @@ impl InputFile {
         w.and_then(|w| h.map(|h| (w, h)))
     }
 
-    pub fn set_frames(&self, f: usize) {
-        self.imp().frames.replace(f);
+    pub fn set_frame_count(&self, frame_count: NonZeroUsize) {
+        self.imp().frame_count.replace(frame_count);
     }
 
     pub fn set_width(&self, f: usize) {

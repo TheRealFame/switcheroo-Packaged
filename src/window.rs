@@ -712,14 +712,16 @@ impl AppWindow {
                     };
 
                     let real_files = files.clone();
-                    for (f, (frame, dims)) in real_files.iter().zip(image_info.iter()) {
-                        f.set_frames(*frame);
-                        let dims = *dims;
+                    for (file, (frame_count, dimensions)) in
+                        real_files.iter().zip(image_info.iter())
+                    {
+                        file.set_frame_count(*frame_count);
+                        let dimensions = *dimensions;
                         idle_add_local_once(clone!(
                             #[weak(rename_to=ff)]
-                            f,
+                            file,
                             move || {
-                                if let Some((width, height)) = dims {
+                                if let Some((width, height)) = dimensions {
                                     ff.set_width(width);
                                     ff.set_height(height);
                                 }
@@ -884,16 +886,16 @@ impl AppWindow {
                     f.path(),
                 )
             })
-            .scan(0, |i, (b, path)| {
+            .scan(0, |image_index, (should_load_thumbnail, path)| {
                 // only load 10 images
-                if b {
-                    *i += 1;
+                if should_load_thumbnail {
+                    *image_index += 1;
                 }
 
-                if *i > 10 {
+                if *image_index > 10 {
                     Some((false, path))
                 } else {
-                    Some((b, path))
+                    Some((should_load_thumbnail, path))
                 }
             })
             .collect_vec();
@@ -903,13 +905,13 @@ impl AppWindow {
             let file_paths_pixbuf = file_path_things
                 .into_iter()
                 .enumerate()
-                .map(|(i, (b, path))| {
+                .map(|(image_index, (should_load_thumbnail, path))| {
                     let sender = sender.clone();
                     async move {
                         sender
                             .send_blocking((
-                                i,
-                                match b {
+                                image_index,
+                                match should_load_thumbnail {
                                     true => Some(Texture::from_filename(&path)),
                                     false => None,
                                 },
@@ -996,9 +998,9 @@ impl AppWindow {
                 Some((f, stem))
             })
             .flat_map(|(f, output_stem)| {
-                let (path, input_filetype, frames) = (f.path(), f.kind(), f.frames());
-                match (input_filetype, output_type, frames) {
-                    (_, _, 0) => unreachable!("an image cannot have zero frames"),
+                let (path, input_filetype, frame_count) =
+                    (f.path(), f.kind(), f.frame_count().get());
+                match (input_filetype, output_type, frame_count) {
                     (Pdf, _, c) => (0..c)
                         .map(|f| {
                             (
@@ -1673,7 +1675,12 @@ impl WindowUI for AppWindow {
     fn update_compression_options(&self) {
         let files = self.active_files();
         let multiple_files = files.len() > 1;
-        let multiple_frames = multiple_files || files.iter().map(|i| i.frames()).sum::<usize>() > 1;
+        let multiple_frames = multiple_files
+            || files
+                .iter()
+                .map(|input_file| input_file.frame_count().get())
+                .sum::<usize>()
+                > 1;
         let output_option = self.selected_output().unwrap();
         if multiple_files || multiple_frames && !output_option.supports_animation() {
             let previous_option = self
@@ -1875,18 +1882,19 @@ impl WindowUI for AppWindow {
             imp.full_image_container.remove(&child);
         }
 
-        for (i, (f, file_type, dims)) in input_files.into_iter().enumerate() {
-            let caption = match dims {
+        for (file_index, (input_file, file_type, dimensions)) in input_files.into_iter().enumerate()
+        {
+            let caption = match dimensions {
                 Some((w, h)) => {
                     format!("{} · {}×{}", file_type.as_display_string(), w, h,)
                 }
                 None => file_type.as_display_string().to_owned(),
             };
 
-            let (w, h) = dims.unwrap_or_default();
+            let (w, h) = dimensions.unwrap_or_default();
 
             let image_thumbnail =
-                ImageThumbnail::new(f.pixbuf().as_ref(), &caption, w as u32, h as u32);
+                ImageThumbnail::new(input_file.pixbuf().as_ref(), &caption, w as u32, h as u32);
 
             let image_flow_box_child = gtk::FlowBoxChild::new();
             image_flow_box_child.set_child(Some(&image_thumbnail));
@@ -1898,7 +1906,7 @@ impl WindowUI for AppWindow {
                 #[weak(rename_to=this)]
                 self,
                 move |_| {
-                    this.remove_file(i as u32);
+                    this.remove_file(file_index as u32);
                     this.imp().image_container.invalidate_filter();
                     this.imp().full_image_container.invalidate_filter();
                 }
@@ -1924,20 +1932,26 @@ impl WindowUI for AppWindow {
 
         let removed = self.imp().removed.borrow().clone();
 
-        for (i, (f, file_type, dims)) in input_files.into_iter().take(count).enumerate() {
-            match removed.contains(&(i as u32)) {
+        for (index, (input_file, file_type, dimensions)) in
+            input_files.into_iter().take(count).enumerate()
+        {
+            match removed.contains(&(index as u32)) {
                 false => {
-                    let caption = match dims {
+                    let caption = match dimensions {
                         Some((w, h)) => {
                             format!("{} · {}×{}", file_type.as_display_string(), w, h,)
                         }
                         None => file_type.as_display_string().to_owned(),
                     };
 
-                    let (w, h) = dims.unwrap_or_default();
+                    let (w, h) = dimensions.unwrap_or_default();
 
-                    let image_thumbnail =
-                        ImageThumbnail::new(f.pixbuf().as_ref(), &caption, w as u32, h as u32);
+                    let image_thumbnail = ImageThumbnail::new(
+                        input_file.pixbuf().as_ref(),
+                        &caption,
+                        w as u32,
+                        h as u32,
+                    );
 
                     let image_flow_box_child = gtk::FlowBoxChild::new();
                     image_flow_box_child.set_child(Some(&image_thumbnail));
@@ -1949,7 +1963,7 @@ impl WindowUI for AppWindow {
                         #[weak(rename_to=this)]
                         self,
                         move |_| {
-                            this.remove_file(i as u32);
+                            this.remove_file(index as u32);
                             this.imp().image_container.invalidate_filter();
                             this.imp().full_image_container.invalidate_filter();
                         }
@@ -2164,7 +2178,12 @@ impl FileOperations for AppWindow {
     fn save_files(&self) {
         let files = self.active_files();
         let multiple_files = files.len() > 1;
-        let multiple_frames = multiple_files || files.iter().map(|i| i.frames()).sum::<usize>() > 1;
+        let multiple_frames = multiple_files
+            || files
+                .iter()
+                .map(|input_file| input_file.frame_count().get())
+                .sum::<usize>()
+                > 1;
         let output_option = self.selected_output().unwrap();
         let first_file_path = files.first().unwrap().path();
         let first_file_path = std::path::Path::new(&first_file_path);

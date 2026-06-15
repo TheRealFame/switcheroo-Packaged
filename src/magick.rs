@@ -3,54 +3,45 @@ use gettextrs::gettext;
 use itertools::Itertools;
 use shared_child::SharedChild;
 use std::io::Read;
+use std::num::NonZeroUsize;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub async fn count_frames(path: String) -> Result<(usize, Option<(usize, usize)>), ()> {
-    let command = tokio::process::Command::new("magick")
+pub async fn count_frames(path: String) -> Result<(NonZeroUsize, Option<(usize, usize)>), ()> {
+    let output = tokio::process::Command::new("magick")
         .stdout(std::process::Stdio::piped())
         .arg("identify")
         .arg(path)
         .output()
-        .await;
+        .await
+        .map_err(|_| ())?;
 
-    match command {
-        Ok(output) => match std::str::from_utf8(&output.stdout) {
-            Ok(output_string) => {
-                let lines = output_string.lines().collect_vec();
-                let count = lines.len();
-                // No output lines means ImageMagick could not identify the file:
-                // it is corrupted or relies on a delegate library that is missing
-                // (e.g. libjxl for JXL, libwebp for WebP). Report it as an error
-                // rather than a valid image with zero frames.
-                if count == 0 {
-                    return Err(());
-                }
-                let dims = lines
-                    .first()
-                    .and_then(|line| {
-                        let dimension_match = regex::Regex::new(r" \d+x\d+ ").unwrap().find(line);
+    let output_string = std::str::from_utf8(&output.stdout).map_err(|_| ())?;
 
-                        dimension_match.map(|m| {
-                            let dims = m
-                                .as_str()
-                                .trim()
-                                .split('x')
-                                .map(|n| n.parse::<usize>())
-                                .collect_vec();
-                            match dims[..] {
-                                [Ok(width), Ok(height)] => Some((width, height)),
-                                _ => None,
-                            }
-                        })
-                    })
-                    .flatten();
-                Ok((count, dims))
+    let mut lines = output_string.lines();
+    // No output at all means ImageMagick could not identify the file: it is
+    // corrupted or relies on a delegate library that is missing (e.g. libjxl
+    // for JXL, libwebp for WebP). Report it as an error rather than a valid
+    // image with zero frames.
+    let first_line = lines.next().ok_or(())?;
+    // One line per frame; the first line also carries the dimensions.
+    let count = NonZeroUsize::MIN.saturating_add(lines.count());
+    let dimensions = regex::Regex::new(r" \d+x\d+ ")
+        .unwrap()
+        .find(first_line)
+        .and_then(|regex_match| {
+            let dimensions = regex_match
+                .as_str()
+                .trim()
+                .split('x')
+                .map(|n| n.parse::<usize>())
+                .collect_vec();
+            match dimensions[..] {
+                [Ok(width), Ok(height)] => Some((width, height)),
+                _ => None,
             }
-            _ => Err(()),
-        },
-        _ => Err(()),
-    }
+        });
+    Ok((count, dimensions))
 }
 
 pub trait MagickArgument {
