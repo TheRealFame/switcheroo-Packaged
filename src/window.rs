@@ -689,7 +689,7 @@ impl AppWindow {
         std::thread::spawn(move || {
             let jobs = file_paths
                 .into_iter()
-                .map(|f| async move { count_frames(f).await.unwrap_or((1, None)) })
+                .map(|f| async move { count_frames(f).await })
                 .collect_vec();
 
             let res = runtime().block_on(join_all(jobs));
@@ -702,6 +702,15 @@ impl AppWindow {
             self,
             async move {
                 if let Ok(image_info) = receiver.recv().await {
+                    // If any file could not be identified, show it as invalid
+                    // rather than proceeding (which would panic later when
+                    // building the conversion jobs).
+                    let Ok(image_info) = image_info.into_iter().collect::<Result<Vec<_>, _>>()
+                    else {
+                        this.switch_to_stack_invalid_image();
+                        return;
+                    };
+
                     let real_files = files.clone();
                     for (f, (frame, dims)) in real_files.iter().zip(image_info.iter()) {
                         f.set_frames(*frame);

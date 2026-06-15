@@ -19,6 +19,13 @@ pub async fn count_frames(path: String) -> Result<(usize, Option<(usize, usize)>
             Ok(output_string) => {
                 let lines = output_string.lines().collect_vec();
                 let count = lines.len();
+                // No output lines means ImageMagick could not identify the file:
+                // it is corrupted or relies on a delegate library that is missing
+                // (e.g. libjxl for JXL, libwebp for WebP). Report it as an error
+                // rather than a valid image with zero frames.
+                if count == 0 {
+                    return Err(());
+                }
                 let dims = lines
                     .first()
                     .and_then(|line| {
