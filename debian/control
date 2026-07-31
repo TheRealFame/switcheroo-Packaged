@@ -1,0 +1,32 @@
+Source: switcheroo
+Section: graphics
+Priority: optional
+Maintainer: Fame <fame@famelinuxpc>
+Build-Depends: debhelper-compat (= 13),
+               meson,
+               ninja-build,
+               libgtk-4-dev,
+                libadwaita-1-dev,
+                libmagickwand-dev,
+                libheif-dev,
+                libjxl-dev,
+                libwebp-dev,
+                librsvg2-dev,
+                blueprint-compiler,
+                ghostscript,
+               appstream,
+               desktop-file-utils,
+               gettext
+Standards-Version: 4.6.2
+Homepage: https://github.com/adhami3310/Switcheroo
+
+Package: switcheroo
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         imagemagick,
+         ghostscript
+Description: Convert and manipulate images
+ A simple, quick, and easy-to-use tool to convert and manipulate
+ images. Supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL,
+ PDF, TIFF, GIF, and ICO formats.

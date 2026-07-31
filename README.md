@@ -83,3 +83,33 @@ Actively developed by Khaleel Al-Adhami.
 This is a fork of [`Upscaler`](https://gitlab.com/TheEvilSkeleton/Upscaler) by Hari Rana (TheEvilSkeleton) to convert images instead of upscaling them. Check out their project!
 
 This app uses a variety of libraries but the main one is [ImageMagick](https://github.com/ImageMagick/ImageMagick), which without their generous contribution to the open source community this would be nearly impossible to make.
+
+## Installation via Linux Packages
+
+Linux packages are built automatically via GitHub Actions for each release.
+
+### Debian / Ubuntu
+
+```bash
+sudo dpkg -i switcheroo_*_amd64.deb
+sudo apt-get install -f
+```
+
+### Fedora / RHEL / openSUSE
+
+```bash
+sudo rpm -i switcheroo-*.rpm
+```
+
+### AppImage (universal)
+
+```bash
+chmod +x switcheroo-x86_64.AppImage
+./switcheroo-x86_64.AppImage
+```
+
+### Arch / Manjaro
+
+```bash
+sudo pacman -U switcheroo-*.pkg.tar.zst
+```
