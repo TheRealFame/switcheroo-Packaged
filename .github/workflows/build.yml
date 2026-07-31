@@ -135,6 +135,8 @@ jobs:
           chmod +x appimagetool
 
       - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           ARCH=x86_64 ./appimagetool --no-appstream appdir switcheroo-x86_64.AppImage
 
