@@ -1,22 +1,203 @@
-image: rust
-
 stages:
-  - check
+  - build
+  - release
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v.*/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 variables:
-  CARGO_HOME: $CI_PROJECT_DIR/.cargo_cache
+  PKG_CONFIG_ALLOW_CROSS: "1"
 
-.cargo:
+.rust-install: &rust-install
+  - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+  - export PATH="$HOME/.cargo/bin:$PATH"
+  - rustup default stable
+
+deb:
+  stage: build
+  image: ubuntu:26.04
   before_script:
-    - rustc --version && cargo --version
-  cache:
-    paths:
-      - $CARGO_HOME
-      - target/
-
-check:
-  extends: .cargo
-  stage: check
+    - apt-get update
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y curl devscripts debhelper-compat meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript appstream desktop-file-utils gettext build-essential git
+    - *rust-install
   script:
-    - rustup component add rustfmt
-    - cargo fmt --all --check
+    - export PATH="$HOME/.cargo/bin:$PATH"
+    - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
+    - test -z "$VERSION" && VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
+    - echo "Building version $VERSION"
+    - mkdir -p switcheroo-${VERSION}
+    - git archive HEAD | tar -x -C switcheroo-${VERSION}
+    - sed -i "1s/\(.*\)(\([^)]*\))\(.*\)/\1(${VERSION}-1)\3/" switcheroo-${VERSION}/debian/changelog
+    - python3 patches/patch-blueprint.py switcheroo-${VERSION}/data/resources/blueprints/window.blp
+    - sed -i 's/gnome_50/gnome_46/' switcheroo-${VERSION}/Cargo.toml
+    - unset PKG_CONFIG_SYSROOT_DIR
+    - rustup default stable
+    - TOOLCHAIN="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu"
+    - ln -sf "$TOOLCHAIN/bin/rustc" /usr/bin/rustc
+    - ln -sf "$TOOLCHAIN/bin/cargo" /usr/bin/cargo
+    - cd switcheroo-${VERSION}
+    - debuild -us -uc -b
+  artifacts:
+    paths:
+      - switcheroo_*.deb
+    expire_in: 2 weeks
+
+appimage:
+  stage: build
+  image: ubuntu:26.04
+  before_script:
+    - apt-get update
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y curl wget fuse libfuse2 meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript appstream desktop-file-utils gettext git
+    - *rust-install
+  script:
+    - export PATH="$HOME/.cargo/bin:$PATH"
+    - python3 patches/patch-blueprint.py data/resources/blueprints/window.blp
+    - sed -i 's/gnome_50/gnome_46/' Cargo.toml
+    - unset PKG_CONFIG_SYSROOT_DIR
+    - rustup default stable
+    - meson setup builddir --prefix=/usr --buildtype=release
+    - ninja -C builddir
+    - DESTDIR=$(pwd)/appdir ninja -C builddir install
+    - mkdir -p appdir/usr/share/applications appdir/usr/share/icons/hicolor/scalable/apps appdir/usr/share/metainfo appdir/usr/share/glib-2.0/schemas
+    - cp builddir/data/io.gitlab.adhami3310.Converter.desktop appdir/io.gitlab.adhami3310.Converter.desktop
+    - cp data/resources/icons/hicolor/scalable/apps/io.gitlab.adhami3310.Converter.svg appdir/switcheroo.svg
+    - cp builddir/data/io.gitlab.adhami3310.Converter.metainfo.xml appdir/usr/share/metainfo/switcheroo.appdata.xml
+    - sed -i 's|Exec=.*|Exec=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
+    - sed -i 's|Icon=.*|Icon=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
+    - cat > appdir/AppRun << 'EOF'
+    - |
+      #!/bin/bash
+      set -e
+      HERE="$(dirname "$(readlink -f "$0")")"
+      export PATH="${HERE}/usr/bin:${PATH}"
+      export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+      export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS}"
+      export APPDIR="${HERE}"
+      exec "${HERE}/usr/bin/switcheroo" "$@"
+    - chmod +x appdir/AppRun
+    - wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+    - chmod +x appimagetool
+    - APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 ./appimagetool --no-appstream appdir switcheroo-x86_64.AppImage
+  artifacts:
+    paths:
+      - switcheroo-x86_64.AppImage
+    expire_in: 2 weeks
+
+rpm:
+  stage: build
+  image: ubuntu:26.04
+  before_script:
+    - apt-get update
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y curl rpm meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript pkg-config appstream desktop-file-utils gettext git
+    - *rust-install
+  script:
+    - export PATH="$HOME/.cargo/bin:$PATH"
+    - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
+    - test -z "$VERSION" && VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
+    - echo "Building version $VERSION"
+    - unset PKG_CONFIG_SYSROOT_DIR
+    - python3 patches/patch-blueprint.py data/resources/blueprints/window.blp
+    - sed -i 's/gnome_50/gnome_46/' Cargo.toml
+    - rustup default stable
+    - mkdir -p /tmp/rpmbuild/BUILD /tmp/rpmbuild/RPMS /tmp/rpmbuild/SOURCES /tmp/rpmbuild/SPECS /tmp/rpmbuild/SRPMS
+    - sed -E "s/^(Version:).*/\1        ${VERSION}/" rpmbuild/SPECS/switcheroo.spec > /tmp/rpmbuild/SPECS/switcheroo.spec
+    - git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > /tmp/rpmbuild/SOURCES/Switcheroo-${VERSION}.tar.gz
+    - rpmbuild -bb --nodeps --define "_topdir /tmp/rpmbuild" /tmp/rpmbuild/SPECS/switcheroo.spec
+    - cp /tmp/rpmbuild/RPMS/x86_64/switcheroo-*.rpm .
+  artifacts:
+    paths:
+      - switcheroo-*.rpm
+    expire_in: 2 weeks
+
+pacman:
+  stage: build
+  image: archlinux:latest
+  before_script:
+    - pacman -Syu --noconfirm base-devel gtk4 libadwaita imagemagick ghostscript meson ninja cargo rust blueprint-compiler
+    - useradd -m builduser
+  script:
+    - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
+    - test -z "$VERSION" && VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
+    - git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > switcheroo-src.tar.gz
+    - cat > PKGBUILD << PKGBUILD_EOF
+    - |
+      pkgname=switcheroo
+      pkgver=${VERSION}
+      pkgrel=1
+      pkgdesc="Convert and manipulate images"
+      arch=('x86_64')
+      url="https://gitlab.com/adhami3310/Switcheroo"
+      license=('GPL-3.0-or-later')
+      depends=('gtk4' 'libadwaita' 'imagemagick' 'ghostscript')
+      makedepends=('meson' 'ninja' 'cargo' 'rust' 'blueprint-compiler')
+      source=("switcheroo-src.tar.gz")
+      sha256sums=('SKIP')
+
+      build() {
+        cd "${srcdir}/Switcheroo-${VERSION}"
+        meson setup builddir --prefix=/usr --buildtype=release
+        ninja -C builddir
+      }
+
+      package() {
+        cd "${srcdir}/Switcheroo-${VERSION}"
+        DESTDIR="${pkgdir}" ninja -C builddir install
+      }
+    - chown -R builduser:builduser .
+    - su builduser -c 'makepkg -f --noconfirm --skippgpcheck --syncdeps'
+  artifacts:
+    paths:
+      - switcheroo-*.pkg.tar.zst
+    expire_in: 2 weeks
+
+release:
+  stage: release
+  image: ubuntu:26.04
+  only:
+    - tags
+  needs:
+    - deb
+    - appimage
+    - rpm
+    - pacman
+  script:
+    - echo "Creating release $CI_COMMIT_TAG"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: "Switcheroo $CI_COMMIT_TAG"
+    description: |
+      Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats.
+
+      ## Installation
+
+      ### AppImage (Universal)
+      `chmod +x switcheroo-x86_64.AppImage && ./switcheroo-x86_64.AppImage`
+
+      ### Debian/Ubuntu
+      `sudo dpkg -i switcheroo_*.deb && sudo apt-get install -f`
+
+      ### RPM (Fedora/RHEL/openSUSE)
+      `sudo rpm -i switcheroo-*.rpm`
+
+      ### Pacman (Arch/Manjaro)
+      `sudo pacman -U switcheroo-*.pkg.tar.zst`
+
+      ## Required Dependencies
+      - ImageMagick
+      - ghostscript (for PDF support)
+
+      _Generated with AI assistance_
+    assets:
+      links:
+        - name: "Debian package"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/switcheroo_*.deb?job=deb"
+        - name: "AppImage"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/switcheroo-x86_64.AppImage?job=appimage"
+        - name: "RPM package"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/switcheroo-*.rpm?job=rpm"
+        - name: "Pacman package"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/switcheroo-*.pkg.tar.zst?job=pacman"
