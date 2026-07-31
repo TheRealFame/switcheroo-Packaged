@@ -1,4 +1,7 @@
+image: rust
+
 stages:
+  - check
   - build
   - release
 
@@ -10,7 +13,23 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "web"
 
 variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo_cache
   PKG_CONFIG_ALLOW_CROSS: "1"
+
+.cargo:
+  before_script:
+    - rustc --version && cargo --version
+  cache:
+    paths:
+      - $CARGO_HOME
+      - target/
+
+check:
+  extends: .cargo
+  stage: check
+  script:
+    - rustup component add rustfmt
+    - cargo fmt --all --check
 
 .rust-install: &rust-install
   - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -120,11 +139,12 @@ pacman:
     - pacman -Syu --noconfirm base-devel gtk4 libadwaita imagemagick ghostscript meson ninja cargo rust blueprint-compiler
     - useradd -m builduser
   script:
-    - VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
-    - test -z "$VERSION" && VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
-    - git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > switcheroo-src.tar.gz
-    - cat > PKGBUILD << PKGBUILD_EOF
     - |
+      set -e
+      VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^v//')
+      test -z "$VERSION" && VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
+      git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > switcheroo-src.tar.gz
+      cat > PKGBUILD << PKGBUILD_EOF
       pkgname=switcheroo
       pkgver=${VERSION}
       pkgrel=1
@@ -138,17 +158,18 @@ pacman:
       sha256sums=('SKIP')
 
       build() {
-        cd "${srcdir}/Switcheroo-${VERSION}"
+        cd "\${srcdir}/Switcheroo-\${pkgver}"
         meson setup builddir --prefix=/usr --buildtype=release
         ninja -C builddir
       }
 
       package() {
-        cd "${srcdir}/Switcheroo-${VERSION}"
-        DESTDIR="${pkgdir}" ninja -C builddir install
+        cd "\${srcdir}/Switcheroo-\${pkgver}"
+        DESTDIR="\${pkgdir}" ninja -C builddir install
       }
-    - chown -R builduser:builduser .
-    - su builduser -c 'makepkg -f --noconfirm --skippgpcheck --syncdeps'
+      PKGBUILD_EOF
+      chown -R builduser:builduser .
+      su builduser -c 'makepkg -f --noconfirm --skippgpcheck --syncdeps'
   artifacts:
     paths:
       - switcheroo-*.pkg.tar.zst
