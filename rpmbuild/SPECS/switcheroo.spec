@@ -6,8 +6,8 @@ Summary:        Convert and manipulate images
 %define debug_package %{nil}
 
 License:        GPL-3.0-or-later
-URL:            https://github.com/adhami3310/Switcheroo
-Source0:        https://github.com/adhami3310/Switcheroo/archive/v%{version}/Switcheroo-%{version}.tar.gz
+URL:            https://gitlab.com/adhami3310/Switcheroo
+Source0:        https://gitlab.com/adhami3310/Switcheroo/-/archive/v%{version}/Switcheroo-%{version}.tar.gz
 
 BuildRequires:  meson >= 0.59.0
 BuildRequires:  ninja-build
