@@ -7,15 +7,12 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to build (overrides the git tag)'
+      logLevel:
+        description: 'Log level'
         required: false
 
 permissions:
   contents: write
-
-env:
-  VERSION: ${{ inputs.version != '' && inputs.version || (github.ref_type == 'tag' && github.ref_name || '') }}
 
 jobs:
   deb:
@@ -23,15 +20,6 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve version
-        run: |
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
-          fi
-          VERSION=${VERSION#v}
-          echo "Building version $VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install build dependencies
         run: |
@@ -43,13 +31,14 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
+      - name: Clone upstream source
+        run: |
+          git clone --depth 1 --branch v2.6.0 https://github.com/adhami3310/Switcheroo.git switcheroo-src
+
       - name: Prepare source
         run: |
-          mkdir -p switcheroo-${VERSION}
-          git archive HEAD | tar -x -C switcheroo-${VERSION}
-          sed -i "1s/\(.*\)(\([^)]*\))\(.*\)/\1(${VERSION}-1)\3/" switcheroo-${VERSION}/debian/changelog
-          python3 patches/patch-blueprint.py switcheroo-${VERSION}/data/resources/blueprints/window.blp
-          sed -i 's/gnome_50/gnome_46/' switcheroo-${VERSION}/Cargo.toml
+          cp -r debian switcheroo-src/
+          sed -i 's/gnome_50/gnome_46/' switcheroo-src/Cargo.toml
 
       - name: Build Debian package
         run: |
@@ -57,7 +46,7 @@ jobs:
           TOOLCHAIN="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu"
           sudo ln -sf "$TOOLCHAIN/bin/rustc" /usr/bin/rustc
           sudo ln -sf "$TOOLCHAIN/bin/cargo" /usr/bin/cargo
-          cd switcheroo-${VERSION}
+          cd switcheroo-src
           debuild -us -uc -b
 
       - name: Upload Debian artifact
@@ -66,212 +55,8 @@ jobs:
           name: switcheroo-deb
           path: switcheroo_*.deb
 
-  appimage:
-    name: "AppImage (amd64)"
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version
-        run: |
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
-          fi
-          VERSION=${VERSION#v}
-          echo "Building version $VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Patch blueprint for libadwaita 1.4 compatibility
-        run: |
-          python3 patches/patch-blueprint.py data/resources/blueprints/window.blp
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y wget fuse libfuse2 meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript appstream desktop-file-utils gettext
-
-      - name: Install newer Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Patch Cargo.toml for distro compatibility
-        run: |
-          sed -i 's/gnome_50/gnome_46/' Cargo.toml
-
-      - name: Build switcheroo
-        run: |
-          rustup default stable
-          meson setup builddir --prefix=/usr --buildtype=release
-          ninja -C builddir
-          DESTDIR=$(pwd)/appdir ninja -C builddir install
-
-      - name: Create AppDir structure
-        run: |
-          mkdir -p appdir/usr/share/applications appdir/usr/share/icons/hicolor/scalable/apps appdir/usr/share/metainfo appdir/usr/share/glib-2.0/schemas
-          cp builddir/data/io.gitlab.adhami3310.Converter.desktop appdir/io.gitlab.adhami3310.Converter.desktop
-          cp data/resources/icons/hicolor/scalable/apps/io.gitlab.adhami3310.Converter.svg appdir/switcheroo.svg
-          cp builddir/data/io.gitlab.adhami3310.Converter.metainfo.xml appdir/usr/share/metainfo/switcheroo.appdata.xml
-          sed -i 's|Exec=.*|Exec=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
-          sed -i 's|Icon=.*|Icon=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
-
-      - name: Create AppRun
-        run: |
-          cat > appdir/AppRun << 'EOF'
-          #!/bin/bash
-          set -e
-          HERE="$(dirname "$(readlink -f "$0")")"
-          export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
-          export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS}"
-          export APPDIR="${HERE}"
-          exec "${HERE}/usr/bin/switcheroo" "$@"
-          EOF
-          chmod +x appdir/AppRun
-
-      - name: Download appimagetool
-        run: |
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
-          chmod +x appimagetool
-
-      - name: Build AppImage
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: "1"
-        run: |
-          ARCH=x86_64 ./appimagetool --no-appstream appdir switcheroo-x86_64.AppImage
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: switcheroo-appimage
-          path: switcheroo-x86_64.AppImage
-
-  rpm:
-    name: "RPM Package (amd64)"
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version
-        run: |
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
-          fi
-          VERSION=${VERSION#v}
-          echo "Building version $VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript pkg-config appstream desktop-file-utils gettext
-
-      - name: Install newer Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          export PATH="$HOME/.cargo/bin:$PATH"
-          rustup default stable
-
-      - name: Patch blueprint for libadwaita 1.4 compatibility
-        run: |
-          python3 patches/patch-blueprint.py data/resources/blueprints/window.blp
-
-      - name: Patch Cargo.toml for distro compatibility
-        run: |
-          sed -i 's/gnome_50/gnome_46/' Cargo.toml
-
-      - name: Prepare RPM source
-        run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          sed -E "s/^(Version:).*/\1        ${VERSION}/" rpmbuild/SPECS/switcheroo.spec > ~/rpmbuild/SPECS/switcheroo.spec
-          git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > ~/rpmbuild/SOURCES/Switcheroo-${VERSION}.tar.gz
-
-      - name: Build RPM
-        run: |
-          rpmbuild -bb --nodeps ~/rpmbuild/SPECS/switcheroo.spec
-
-      - name: Copy RPM to workspace
-        run: |
-          cp ~/rpmbuild/RPMS/x86_64/switcheroo-*.rpm .
-
-      - name: Upload RPM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: switcheroo-rpm
-          path: switcheroo-*.rpm
-
-  pacman:
-    name: "Pacman Package (amd64)"
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version
-        run: |
-          if [ -z "$VERSION" ]; then
-            VERSION=$(grep -m1 "version:" meson.build | grep -o '[0-9.]*')
-          fi
-          VERSION=${VERSION#v}
-          echo "Building version $VERSION"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Build Pacman package in Arch Linux container
-        run: |
-          git archive --prefix=Switcheroo-${VERSION}/ --format=tar.gz HEAD > switcheroo-src.tar.gz
-          docker run --rm -v "${{ github.workspace }}":/work -e VERSION="${VERSION}" archlinux/archlinux:latest bash -c '
-            set -ex
-            pacman -Syu --noconfirm base-devel gtk4 libadwaita imagemagick ghostscript meson ninja cargo rust blueprint-compiler
-            useradd -m builduser
-            cd /work
-            cat > PKGBUILD << PKGBUILD_EOF
-            # Maintainer: Adhami3310 <adhami3310@gitlab.com>
-            pkgname=switcheroo
-            pkgver=${VERSION}
-            pkgrel=1
-            pkgdesc="Convert and manipulate images"
-            arch=('x86_64')
-            url="https://gitlab.com/adhami3310/Switcheroo"
-            license=('GPL-3.0-or-later')
-            depends=('gtk4' 'libadwaita' 'imagemagick' 'ghostscript')
-            makedepends=('meson' 'ninja' 'cargo' 'rust' 'blueprint-compiler')
-            source=("switcheroo-src.tar.gz")
-            sha256sums=('SKIP')
-
-            build() {
-              cd "\${srcdir}/Switcheroo-${VERSION}"
-              meson setup builddir --prefix=/usr --buildtype=release
-              ninja -C builddir
-            }
-
-            package() {
-              cd "\${srcdir}/Switcheroo-${VERSION}"
-              DESTDIR="\${pkgdir}" ninja -C builddir install
-            }
-            PKGBUILD_EOF
-            chown -R builduser:builduser .
-            su builduser -c "makepkg -f --noconfirm --skippgpcheck --syncdeps"
-          '
-
-      - name: Upload Pacman artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: switcheroo-pacman
-          path: switcheroo-*.pkg.tar.zst
-
-  release:
-    name: "Create Release"
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [deb, appimage, rpm, pacman]
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
       - name: Generate release notes
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           echo "# Switcheroo $TAG" > release_notes.md
@@ -308,10 +93,332 @@ jobs:
           echo "" >> release_notes.md
           echo "_Generated with AI assistance_" >> release_notes.md
 
-      - name: Create GitHub Release
+      - name: Release Debian package
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/*
+          files: switcheroo_*.deb
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  appimage:
+    name: "AppImage (amd64)"
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream source
+        run: |
+          git clone https://github.com/adhami3310/Switcheroo.git switcheroo-src
+
+      - name: Resolve version
+        run: |
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -m1 "version:" switcheroo-src/meson.build | grep -o '[0-9.]*')
+          fi
+          VERSION=${VERSION#v}
+          echo "Building version $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Checkout tag
+        run: |
+          git -C switcheroo-src checkout -q "${VERSION}" 2>/dev/null || git -C switcheroo-src checkout -q "v${VERSION}"
+
+      - name: Patch gresource path for AppImage
+        run: |
+          git -C switcheroo-src apply ../patches/appimage-gresource-path.patch
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y wget fuse libfuse2 meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript appstream desktop-file-utils gettext
+
+      - name: Install newer Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Patch Cargo.toml for distro compatibility
+        run: |
+          sed -i 's/gnome_50/gnome_46/' switcheroo-src/Cargo.toml
+
+      - name: Build switcheroo
+        run: |
+          rustup default stable
+          cd switcheroo-src
+          meson setup builddir --prefix=/usr --buildtype=release
+          ninja -C builddir
+          DESTDIR=$(pwd)/../appdir ninja -C builddir install
+
+      - name: Bundle runtime libraries
+        run: |
+          mkdir -p appdir/usr/lib/x86_64-linux-gnu
+          ldd appdir/usr/bin/switcheroo | awk '{print $3}' | grep '^/' | sort -u | while read lib; do
+            case "$lib" in
+              */ld-linux*|*libc.so.6|*libm.so.6|*libpthread*|*libdl.so.2|*librt.so.1) ;;
+              *) cp -L "$lib" appdir/usr/lib/x86_64-linux-gnu/ ;;
+            esac
+          done
+
+      - name: Create AppDir structure
+        run: |
+          mkdir -p appdir/usr/share/applications appdir/usr/share/icons/hicolor/scalable/apps appdir/usr/share/metainfo appdir/usr/share/glib-2.0/schemas
+          cp switcheroo-src/builddir/data/io.gitlab.adhami3310.Converter.desktop appdir/io.gitlab.adhami3310.Converter.desktop
+          cp switcheroo-src/data/resources/icons/hicolor/scalable/apps/io.gitlab.adhami3310.Converter.svg appdir/switcheroo.svg
+          cp switcheroo-src/builddir/data/io.gitlab.adhami3310.Converter.metainfo.xml appdir/usr/share/metainfo/switcheroo.appdata.xml
+          sed -i 's|Exec=.*|Exec=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
+          sed -i 's|Icon=.*|Icon=switcheroo|' appdir/io.gitlab.adhami3310.Converter.desktop
+          glib-compile-schemas appdir/usr/share/glib-2.0/schemas
+
+      - name: Create AppRun
+        run: |
+          cat > appdir/AppRun << 'EOF'
+          #!/bin/bash
+          set -e
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+          export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS}"
+          export SWITCHEROO_RESOURCE_DIR="${HERE}/usr/share/switcheroo/resources.gresource"
+          export APPDIR="${HERE}"
+          exec "${HERE}/usr/bin/switcheroo" "$@"
+          EOF
+          chmod +x appdir/AppRun
+
+      - name: Download appimagetool
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+
+      - name: Build AppImage
+        run: |
+          ARCH=x86_64 ./appimagetool --no-appstream appdir switcheroo-x86_64.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: switcheroo-appimage
+          path: switcheroo-x86_64.AppImage
+
+      - name: Generate release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "# Switcheroo $TAG" > release_notes.md
+          echo "" >> release_notes.md
+          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### AppImage (Universal)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
+          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Debian/Ubuntu" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
+          echo "sudo apt-get install -f" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Required Dependencies" >> release_notes.md
+          echo "- ImageMagick" >> release_notes.md
+          echo "- ghostscript (for PDF support)" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "_Generated with AI assistance_" >> release_notes.md
+
+      - name: Release AppImage
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: switcheroo-x86_64.AppImage
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  rpm:
+    name: "RPM Package (amd64)"
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream source
+        run: |
+          git clone --depth 1 --branch v2.6.0 https://github.com/adhami3310/Switcheroo.git switcheroo-src
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm meson ninja-build libgtk-4-dev libadwaita-1-dev libmagickwand-dev libheif-dev libjxl-dev libwebp-dev librsvg2-dev blueprint-compiler ghostscript pkg-config appstream desktop-file-utils gettext
+
+      - name: Install newer Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup default stable
+
+      - name: Patch Cargo.toml for distro compatibility
+        run: |
+          sed -i 's/gnome_50/gnome_46/' switcheroo-src/Cargo.toml
+
+      - name: Prepare RPM source
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp rpmbuild/SPECS/switcheroo.spec ~/rpmbuild/SPECS/
+          cd switcheroo-src && tar --exclude-vcs -czf ~/rpmbuild/SOURCES/Switcheroo-2.6.0.tar.gz --transform 's|^\./|Switcheroo-2.6.0/|' .
+
+      - name: Build RPM
+        run: |
+          rpmbuild -bb --nodeps ~/rpmbuild/SPECS/switcheroo.spec
+
+      - name: Copy RPM to workspace
+        run: |
+          cp ~/rpmbuild/RPMS/x86_64/switcheroo-*.rpm .
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: switcheroo-rpm
+          path: switcheroo-*.rpm
+
+      - name: Generate release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "# Switcheroo $TAG" > release_notes.md
+          echo "" >> release_notes.md
+          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### AppImage (Universal)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
+          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Debian/Ubuntu" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
+          echo "sudo apt-get install -f" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Required Dependencies" >> release_notes.md
+          echo "- ImageMagick" >> release_notes.md
+          echo "- ghostscript (for PDF support)" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "_Generated with AI assistance_" >> release_notes.md
+
+      - name: Release RPM
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: switcheroo-*.rpm
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pacman:
+    name: "Pacman Package (amd64)"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream source
+        run: |
+          git clone --depth 1 --branch v2.6.0 https://github.com/adhami3310/Switcheroo.git switcheroo-src
+
+      - name: Build Pacman package in Arch Linux container
+        run: |
+          cd switcheroo-src && git archive --prefix=Switcheroo-2.6.0/ --format=tar.gz HEAD > ../switcheroo-src.tar.gz && cd ..
+          docker run --rm -v "${{ github.workspace }}":/work archlinux/archlinux:latest bash -c '
+            set -ex
+            pacman -Syu --noconfirm base-devel gtk4 libadwaita imagemagick ghostscript meson ninja cargo rust blueprint-compiler
+            useradd -m builduser
+            cd /work
+            echo IyBNYWludGFpbmVyOiBBZGhhbWkzMzEwIDxhZGhhbWkzMzEwQGdpdGxhYi5jb20+CnBrZ25hbWU9c3dpdGNoZXJvbwpwa2d2ZXI9Mi42LjAKcGtncmVsPTEKcGtnZGVzYz0iQ29udmVydCBhbmQgbWFuaXB1bGF0ZSBpbWFnZXMiCmFyY2g9KCd4ODZfNjQnKQp1cmw9Imh0dHBzOi8vZ2l0aHViLmNvbS9hZGhhbWkzMzEwL1N3aXRjaGVyb28iCmxpY2Vuc2U9KCdHUEwtMy4wLW9yLWxhdGVyJykKZGVwZW5kcz0oJ2d0azQnICdsaWJhZHdhaXRhJyAnaW1hZ2VtYWdpY2snICdnaG9zdHNjcmlwdCcpCm1ha2VkZXBlbmRzPSgnbWVzb24nICduaW5qYScgJ2NhcmdvJyAncnVzdCcgJ2JsdWVwcmludC1jb21waWxlcicpCnNvdXJjZT0oInN3aXRjaGVyb28tc3JjLnRhci5neiIpCnNoYTI1NnN1bXM9KCdTS0lQJykKCmJ1aWxkKCkgewogIGNkICIke3NyY2Rpcn0vU3dpdGNoZXJvby0yLjYuMCIKICBtZXNvbiBzZXR1cCBidWlsZGRpciAtLXByZWZpeD0vdXNyIC0tYnVpbGR0eXBlPXJlbGVhc2UKICBuaW5qYSAtQyBidWlsZGRpcgp9CgpwYWNrYWdlKCkgewogIGNkICIke3NyY2Rpcn0vU3dpdGNoZXJvby0yLjYuMCIKICBERVNURElSPSIke3BrZ2Rpcn0iIG5pbmphIC1DIGJ1aWxkZGlyIGluc3RhbGwKfQo= | base64 -d > PKGBUILD
+            chown -R builduser:builduser .
+            su builduser -c "makepkg -f --noconfirm --skippgpcheck --syncdeps"
+          '
+
+      - name: Upload Pacman artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: switcheroo-pacman
+          path: switcheroo-*.pkg.tar.zst
+
+      - name: Generate release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "# Switcheroo $TAG" > release_notes.md
+          echo "" >> release_notes.md
+          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### AppImage (Universal)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
+          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Debian/Ubuntu" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
+          echo "sudo apt-get install -f" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Required Dependencies" >> release_notes.md
+          echo "- ImageMagick" >> release_notes.md
+          echo "- ghostscript (for PDF support)" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "_Generated with AI assistance_" >> release_notes.md
+
+      - name: Release Pacman package
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: switcheroo-*.pkg.tar.zst
           body_path: release_notes.md
           draft: false
           prerelease: false
