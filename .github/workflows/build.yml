@@ -55,54 +55,6 @@ jobs:
           name: switcheroo-deb
           path: switcheroo_*.deb
 
-      - name: Generate release notes
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          echo "# Switcheroo $TAG" > release_notes.md
-          echo "" >> release_notes.md
-          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### AppImage (Universal)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
-          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Debian/Ubuntu" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
-          echo "sudo apt-get install -f" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Required Dependencies" >> release_notes.md
-          echo "- ImageMagick" >> release_notes.md
-          echo "- ghostscript (for PDF support)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "_Generated with AI assistance_" >> release_notes.md
-
-      - name: Release Debian package
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: switcheroo_*.deb
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   appimage:
     name: "AppImage (amd64)"
@@ -203,54 +155,6 @@ jobs:
           name: switcheroo-appimage
           path: switcheroo-x86_64.AppImage
 
-      - name: Generate release notes
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          echo "# Switcheroo $TAG" > release_notes.md
-          echo "" >> release_notes.md
-          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### AppImage (Universal)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
-          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Debian/Ubuntu" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
-          echo "sudo apt-get install -f" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Required Dependencies" >> release_notes.md
-          echo "- ImageMagick" >> release_notes.md
-          echo "- ghostscript (for PDF support)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "_Generated with AI assistance_" >> release_notes.md
-
-      - name: Release AppImage
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: switcheroo-x86_64.AppImage
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   rpm:
     name: "RPM Package (amd64)"
@@ -298,54 +202,6 @@ jobs:
           name: switcheroo-rpm
           path: switcheroo-*.rpm
 
-      - name: Generate release notes
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          echo "# Switcheroo $TAG" > release_notes.md
-          echo "" >> release_notes.md
-          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### AppImage (Universal)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "chmod +x switcheroo-x86_64.AppImage" >> release_notes.md
-          echo "./switcheroo-x86_64.AppImage" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Debian/Ubuntu" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo dpkg -i switcheroo_*.deb" >> release_notes.md
-          echo "sudo apt-get install -f" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### RPM (Fedora/RHEL/openSUSE)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo rpm -i switcheroo-*.rpm" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Pacman (Arch/Manjaro)" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo "sudo pacman -U switcheroo-*.pkg.tar.zst" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Required Dependencies" >> release_notes.md
-          echo "- ImageMagick" >> release_notes.md
-          echo "- ghostscript (for PDF support)" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "_Generated with AI assistance_" >> release_notes.md
-
-      - name: Release RPM
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: switcheroo-*.rpm
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   pacman:
     name: "Pacman Package (amd64)"
@@ -376,13 +232,24 @@ jobs:
           name: switcheroo-pacman
           path: switcheroo-*.pkg.tar.zst
 
+  release:
+    name: "Create Release"
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [deb, appimage, rpm, pacman]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
       - name: Generate release notes
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           echo "# Switcheroo $TAG" > release_notes.md
           echo "" >> release_notes.md
-          echo "Convert and manipulate images - supports JPEG, PNG, WebP, SVG, HEIC, BMP, AVIF, JXL, PDF, TIFF, GIF, and ICO formats." >> release_notes.md
+          echo "Convert audio and video files between formats." >> release_notes.md
           echo "" >> release_notes.md
           echo "## Installation" >> release_notes.md
           echo "" >> release_notes.md
@@ -409,16 +276,14 @@ jobs:
           echo '```' >> release_notes.md
           echo "" >> release_notes.md
           echo "## Required Dependencies" >> release_notes.md
-          echo "- ImageMagick" >> release_notes.md
-          echo "- ghostscript (for PDF support)" >> release_notes.md
+          echo "- FFmpeg (audio/video conversion)" >> release_notes.md
           echo "" >> release_notes.md
           echo "_Generated with AI assistance_" >> release_notes.md
 
-      - name: Release Pacman package
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: switcheroo-*.pkg.tar.zst
+          files: artifacts/*
           body_path: release_notes.md
           draft: false
           prerelease: false
